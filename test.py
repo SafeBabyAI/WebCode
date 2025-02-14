@@ -1,145 +1,64 @@
 import gradio as gr
-import matplotlib as plt
-import requests, json
-def request_iris_prediction(data_list):
-    endpoint = "http://c8036432-a374-4b6f-b89d-067ef0d15b8a.koreacentral.azurecontainer.io/score"
-    # method : post
-    # headers
-    headers = { 
-        "Content-Type" : "application/json",
-        "Authorization" : "Bearer VIrzntKeu94DrPK0KVx9ktjtYklFROHS"
+import cv2
+
+import numpy as np
+
+import torch
+import torchvision.models as models
+from torchvision import transforms
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model = models.resnet50(weights=None) # 사전 학습된 가중치를 사용하지 않고 resnet50 구조만 로드
+
+num_ftrs = model.fc.in_features
+model.fc = torch.nn.Linear(num_ftrs, 2)  # 1000개 → 2개 클래스 분류로 변경경
+
+model.load_state_dict(torch.load("best_model.pth", map_location=device, weights_only=True))  # 학습된 ResNet50 모델 로드, weights_only=True → 모델의 구조가 아니라 가중치만 로드
+model.to(device)
+model.eval() # 평가 모드로 설정
+
+def detect_risk(frame):
+    """이미지에서 아기 위험 여부 감지하는 함수"""
+    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img_resized = cv2.resize(img, (224, 224))  # 모델 입력 크기에 맞게 조정
+    img_tensor = transforms.ToTensor()(img_resized).unsqueeze(0).to(device) # 배치 차원 추가 ((C, H, W) → (1, C, H, W))
+    
+    with torch.no_grad():
+        output = model(img_tensor)  # 모델 출력
+        probabilities = torch.softmax(output, dim=1)  # softmax로 확률 변환
+        print(probabilities)
+        risk_prob = probabilities[0, 0].item() # 0번 클래스(안전)의 확률 값만 추출
+
+    alert_text = "Dangerous!" if risk_prob > 0.5 else "Safe:)"
+    color = (0, 0, 255) if risk_prob > 0.5 else (0, 255, 0)
+    # cv2.putText(img, alert_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
+    return img, alert_text
+
+def process_video(frame):
+    #frame = cv2.resize(frame, (640, 480))
+    img, alert = detect_risk(frame)
+    return img, alert
+
+demo = gr.Interface(
+    fn=process_video,
+    inputs=gr.Image(sources=["webcam"], streaming=True, elem_id="input-frame"),
+    outputs=[
+        gr.Image(label="AI 감지 결과", elem_id="output-frame"),
+        gr.Textbox(label="알람 상태")
+    ],
+    live=True,
+    css="""
+    /* 기본 제공되는 버튼 숨기기 */
+    /*  #component-8 { display: none !important; } 'Clear' 버튼 숨김 */
+    #component-10 { display: none !important; } /* 'Clear' 버튼 숨김 */
+    
+    /* 웹캠과 감지 결과 창 높이 동일하게 설정 */
+    #input-frame, #output-frame {
+        height: 480px !important;
     }
-    # body
-    body = {
-        "Inputs": {
-            "input1": data_list
-        }
-    }
-    response = requests.post(endpoint, headers=headers, json=body)
-    print(response)
-    if response.status_code == 200:
-        response_json = response.json()
-        return response_json["Results"]["WebServiceOutput0"]
-    else:
-        return ""
+    """
+)
 
-def save_plot(data_points):
-    # 센터로이드의 평균 위치를 계산하기 위한 변수 초기화
-    centroid_positions = {0: [0, 0], 1: [0, 0], 2: [0, 0]}
-    centroid_colors = {0: 'b', 1: 'r', 2: 'g'}  # 클러스터 색상
-    
-    # 데이터 포인트를 기반으로 센터로이드 위치 계산
-    for point in data_points:
-        assignment = point["Assignments"]
-    
-        # 각 클러스터별로 거리 데이터 가져오기
-        for i in range(3):
-            dist_key = f"DistancesToClusterCenter no.{i}"
-            if dist_key in point:
-                # 위치의 평균 계산
-                centroid_positions[i][0] += (point["sepal_length_cm"] + point[dist_key]) / 2
-                centroid_positions[i][1] += (point["sepal_width_cm"] + point[dist_key]) / 2
-    
-    # 평균값으로 센터로이드 위치 계산
-    for i in range(3):
-        centroid_positions[i][0] /= len(data_points)
-        centroid_positions[i][1] /= len(data_points)
-    
-    plt.figure(figsize=(8, 6))
-    
-    point_index = 0
-    # 데이터 포인트 그리기
-    for point in data_points:
-        point_index += 1
-        plt.scatter(point["sepal_length_cm"], point["sepal_width_cm"],
-                    c='b' if point["Assignments"] == 0 else 'r' if point["Assignments"] == 1 else 'g')
-        plt.text(point["sepal_length_cm"], point["sepal_width_cm"], f"{point_index}")
-
-    # 클러스터 센터로이드 그리기
-    for cluster, (x, y) in centroid_positions.items():
-        plt.scatter(x, y, c=centroid_colors[cluster], marker='X', s=200)
-
-    plt.title('Data Points and Cluster Centroids')
-    plt.xlabel('Sepal Length (cm)')
-    plt.ylabel('Sepal Width (cm)')
-    plt.grid()
-    plt.savefig('iris_clusters.png')
-    plt.close()  # plt.show() 대신 plt.close()를 사용
-    return 'iris_clusters.png'  # 현재 figure 반환
-
-
-with gr.Blocks() as demo:
-    gr.Markdown("# 붓꽃 예측!!!!")
-    
-    view_count = gr.State(1)
-    data_dict = dict()
-    
-    def click_send():
-        data_list = list(data_dict.values())
-        print(data_list)
-        response_data = request_iris_prediction(data_list) 
-        image_path = save_plot(response_data)
-        return json.dumps(response_data, indent=3), image_path
-    
-    def click_add(count):
-        count += 1
-        print("+ : {}".format(count))
-        return count
-
-    def click_delete(count):
-        
-        if count > 1:
-            count -= 1
-        print("- : {}".format(count))
-        return count
-
-    def change_data(row_index, sl, sw, pl, pw):
-        data_dict.update({
-            row_index: {
-                "sepal_length_cm": sl,
-                "sepal_width_cm": sw,
-                "petal_length_cm": pl,
-                "petal_width_cm": pw,
-                "class": ""
-            }
-        })
-        print(data_dict)
-        pass
-    
-    with gr.Row():
-        add_button = gr.Button("+")
-        delete_button = gr.Button("-")
-    
-    with gr.Column():
-        
-        @gr.render(inputs=[view_count])
-        def render_input_components(count):
-            
-            for i in range(0, count):
-                with gr.Column():
-                    gr.Markdown(value=f"Index : {i}")
-                    row_index = gr.State(i)
-                    with gr.Row():
-                        
-                        sepal_length_textbox = gr.Textbox(label="꽃받침 길이", key=f"sl-{i}")
-                        sepal_width_textbox = gr.Textbox(label="꽃받침 넓이", key=f"sw-{i}")
-                        petal_length_textbox = gr.Textbox(label="꽃잎 길이", key=f"pl-{i}")
-                        petal_width_textbox = gr.Textbox(label="꽃잎 넓이", key=f"pw-{i}")
-                        
-                        sepal_length_textbox.change(fn=change_data, inputs=[row_index, sepal_length_textbox, sepal_width_textbox, petal_length_textbox, petal_width_textbox], outputs=[])
-                        sepal_width_textbox.change(fn=change_data, inputs=[row_index, sepal_length_textbox, sepal_width_textbox, petal_length_textbox, petal_width_textbox], outputs=[])
-                        petal_length_textbox.change(fn=change_data, inputs=[row_index, sepal_length_textbox, sepal_width_textbox, petal_length_textbox, petal_width_textbox], outputs=[])
-                        petal_width_textbox.change(fn=change_data, inputs=[row_index, sepal_length_textbox, sepal_width_textbox, petal_length_textbox, petal_width_textbox], outputs=[])
-    
-    send_button = gr.Button("전송")
-    output_textbox = gr.Textbox(label="출력")    
-    output_image = gr.Image(label="Plot", interactive=False)
-    
-    add_button.click(fn=click_add, inputs=[view_count], outputs=[view_count])
-    delete_button.click(fn=click_delete, inputs=[view_count], outputs=[view_count])
-    
-    send_button.click(fn=click_send, inputs=[], 
-                      outputs=[output_textbox, output_image])
-    
 demo.launch(share=True)
-
