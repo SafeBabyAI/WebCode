@@ -69,3 +69,5 @@ jobs:
           app-name: '6b028'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_AD627F38DEFD4B8CA9F7D216C409C080 }}
+          package: release.zip 
+          type: zip 
