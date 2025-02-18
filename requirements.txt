@@ -1,0 +1,6 @@
+torch==2.0.1
+torchvision==0.15.2
+gradio==3.50.2
+opencv-python==4.10.0
+numpy==1.24.3
+#버전 정보 맞는지 확인 필요
