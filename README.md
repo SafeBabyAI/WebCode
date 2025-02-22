@@ -12,3 +12,10 @@ Gradio로 구현한 화면과 기능
 <hr>
 2_18_AzureAppServiceDeploymentTest
 <hr>
+
+### 2025-02-22 이후   
+- model 폴더: resnet 학습 파일의 위치  
+- ResNet50_v1.py: 가장 기본 버전  
+- ResNet50_v2.py: 시연에서 사용할 버전   
+- ResNet50_v3.py: 드롭박스 추가 버전  
+<hr>
