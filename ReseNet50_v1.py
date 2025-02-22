@@ -1,8 +1,19 @@
+"""
+가장 첫번째 버전
+
+######## 모델 파일 경로 확인 ########
+ex) WebCode-main/model/best_model.pth
+
+pip install gradio 
+pip install opencv-python   
+pip install numpy   
+pip install torch   
+pip install torchvision     
+"""
+
 import gradio as gr
 import cv2
-
 import numpy as np
-
 import torch
 import torchvision.models as models
 from torchvision import transforms
@@ -14,7 +25,8 @@ model = models.resnet50(weights=None) # 사전 학습된 가중치를 사용하�
 num_ftrs = model.fc.in_features
 model.fc = torch.nn.Linear(num_ftrs, 2)  # 1000개 → 2개 클래스 분류로 변경
 
-model.load_state_dict(torch.load("best_model.pth", map_location=device, weights_only=True))  # 학습된 ResNet50 모델 로드, weights_only=True → 모델의 구조가 아니라 가중치만 로드
+######## 모델 파일 경로 확인 ########
+model.load_state_dict(torch.load("model/best_model.pth", map_location=device, weights_only=True))  # 학습된 ResNet50 모델 로드, weights_only=True → 모델의 구조가 아니라 가중치만 로드
 model.to(device)
 model.eval() # 평가 모드로 설정
 
