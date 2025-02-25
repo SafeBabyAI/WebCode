@@ -16,8 +16,8 @@ RISK_MESSAGE_TEXTBOX = "위험 상황이 지속되어 스트리밍을 중지합�
 risk_count = 0  # 리스크 카운트 변수
 
 # 모델 폴더 경로
-model_dir = "project\WebCode-main\models\model_files"
-yolo_dir = "project\WebCode-main\models\model_files\yolo_best.pt"
+model_dir = "project\WebCode-main\model"
+yolo_dir = "project\WebCode-main\model\yolo_best.pt"
 
 def get_model_files():
     """모델 폴더 내의 파일 리스트를 가져오는 함수"""
