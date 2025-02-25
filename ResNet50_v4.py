@@ -6,8 +6,8 @@ import os
 
 import gradio as gr
 
-from models.resnet_model import ResNetModel
-from models.yolo_model import YOLODetector
+from model.resnet_model import ResNetModel
+from model.yolo_model import YOLODetector
 # import kakaotalk
 
 END_COUNT = 10
